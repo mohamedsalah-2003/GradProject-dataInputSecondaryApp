@@ -1,7 +1,8 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
-import { useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import {  useRef, useState } from 'react';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/app-button';
@@ -128,11 +129,18 @@ export default function RegisterFaceScreen() {
         return;
       }
 
-      const imageResponse = await fetch(photo.uri);
-      const blob = await imageResponse.blob();
-
       const formData = new FormData();
-      formData.append('file', blob, 'register.jpg');
+      if (Platform.OS === 'web') {
+        const imageResponse = await fetch(photo.uri);
+        const blob = await imageResponse.blob();
+        formData.append('file', blob, 'register.jpg');
+      } else {
+        formData.append('file', {
+          uri: photo.uri,
+          name: 'register.jpg',
+          type: 'image/jpeg',
+        } as any);
+      }
       formData.append('name', trimmedName);
 
       const response = await apiClient.post<RegisterResponse>(API_PATHS.face.register, formData);
@@ -200,7 +208,7 @@ export default function RegisterFaceScreen() {
               <StatusBadge label={result.title} variant={result.variant} />
               {result.details.length > 0 ? (
                 <View style={styles.details}>
-                  {result.details.map((row) => (
+                  {result.details.map((row:any) => (
                     <InfoRow key={row.label} label={row.label} value={row.value} />
                   ))}
                 </View>

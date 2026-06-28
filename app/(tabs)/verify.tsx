@@ -1,8 +1,8 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import axios from 'axios';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/app-button';
@@ -85,14 +85,22 @@ export default function VerifyFaceScreen() {
         return;
       }
 
-      const imageResponse = await fetch(photo.uri);
-      const blob = await imageResponse.blob();
-
       const formData = new FormData();
-      formData.append('file', blob, 'verify.jpg');
+      if (Platform.OS === 'web') {
+        const imageResponse = await fetch(photo.uri);
+        const blob = await imageResponse.blob();
+        formData.append('file', blob, 'verify.jpg');
+      } else {
+        formData.append('file', {
+          uri: photo.uri,
+          name: 'verify.jpg',
+          type: 'image/jpeg',
+        } as any);
+      }
       formData.append('deviceId', trimmedDeviceId);
 
       const response = await apiClient.post<VerifyResponse>(API_PATHS.face.verify, formData);
+
 
       if (!response.data.success) {
         setError(response.data.message ?? 'Verification failed.');
