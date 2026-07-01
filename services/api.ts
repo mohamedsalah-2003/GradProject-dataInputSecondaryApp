@@ -27,7 +27,7 @@ apiClient.interceptors.response.use(
   async (error) => {
     const status = error.response?.status;
 
-    if (status === 401 || status === 403) {
+    if (status === 500 || status === 403) {
       await tokenStorage.remove('accesstoken');
       await tokenStorage.remove('refreshtoken');
       router.replace('/login');

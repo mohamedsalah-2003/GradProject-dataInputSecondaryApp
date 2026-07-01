@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "dataInputApp",
-    "slug": "dataInputApp",
+    "name": "SensorAndCameraEmelator",
+    "slug": "SensorAndCameraEmelator",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
