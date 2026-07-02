@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,8 +20,21 @@ import { Radius, Spacing } from '@/constants/theme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { apiClient } from '@/services/api';
 
+type Home = {
+  _id: string;
+  name: string;
+  location: string;
+};
+
+type Device = {
+  _id: string;
+  name: string;
+  location: string;
+  isActive: boolean;
+  isCamera: boolean;
+};
+
 type ReadingForm = {
-  deviceId: string;
   temp: string;
   smoke: string;
   gas: string;
@@ -53,7 +68,6 @@ type ReadingResponse = {
 };
 
 const INITIAL_FORM: ReadingForm = {
-  deviceId: '',
   temp: '',
   smoke: '',
   gas: '',
@@ -69,25 +83,94 @@ export default function CreateReadingScreen() {
   const [response, setResponse] = useState<ReadingResponse | null>(null);
   const [form, setForm] = useState<ReadingForm>(INITIAL_FORM);
 
+  const [homes, setHomes] = useState<Home[]>([]);
+  const [sensorDevices, setSensorDevices] = useState<Device[]>([]);
+  const [selectedHomeId, setSelectedHomeId] = useState('');
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  const [homesLoading, setHomesLoading] = useState(false);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+
   const background = useThemeColor({}, 'background');
   const surface = useThemeColor({}, 'surface');
   const text = useThemeColor({}, 'text');
   const textSecondary = useThemeColor({}, 'textSecondary');
   const border = useThemeColor({}, 'border');
+  const primary = useThemeColor({}, 'primary');
   const cardShadow = useThemeColor({}, 'cardShadow');
+
+  const loadHomes = useCallback(async () => {
+    try {
+      setHomesLoading(true);
+      setError('');
+
+      const response = await apiClient.get('/homes/getHomes');
+      const fetchedHomes: Home[] = response.data?.homes ?? [];
+
+      setHomes(fetchedHomes);
+
+      if (fetchedHomes.length > 0) {
+        setSelectedHomeId(fetchedHomes[0]._id);
+      }
+    } catch {
+      setError('Could not load homes.');
+    } finally {
+      setHomesLoading(false);
+    }
+  }, []);
+
+  const loadSensorDevices = useCallback(async (homeId: string) => {
+    try {
+      if (!homeId) return;
+
+      setDevicesLoading(true);
+      setSensorDevices([]);
+      setSelectedDeviceId('');
+      setError('');
+
+      const response = await apiClient.get(`/devices/getDevicesByHome/${homeId}`);
+      const devices: Device[] = response.data?.devices ?? [];
+
+      const sensors = devices.filter((device) => device.isCamera !== true);
+
+      setSensorDevices(sensors);
+
+      if (sensors.length > 0) {
+        setSelectedDeviceId(sensors[0]._id);
+      }
+    } catch {
+      setError('Could not load devices.');
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHomes();
+  }, [loadHomes]);
+
+  useEffect(() => {
+    if (selectedHomeId) {
+      loadSensorDevices(selectedHomeId);
+    }
+  }, [selectedHomeId, loadSensorDevices]);
 
   const handleChange = (key: keyof ReadingForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const submitReading = async () => {
+    if (!selectedDeviceId.trim()) {
+      setError('Please select a device first.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setResponse(null);
 
     try {
       const payload = {
-        deviceId: form.deviceId,
+        deviceId: selectedDeviceId,
         temp: Number(form.temp),
         smoke: Number(form.smoke),
         gas: Number(form.gas),
@@ -127,14 +210,99 @@ export default function CreateReadingScreen() {
               styles.card,
               { backgroundColor: surface, borderColor: border, shadowColor: cardShadow },
             ]}>
-            <Text style={[styles.sectionTitle, { color: text }]}>Device</Text>
-            <AppInput
-              label="Device ID"
-              placeholder="e.g. sensor-001"
-              value={form.deviceId}
-              onChangeText={(v) => handleChange('deviceId', v)}
-              autoCapitalize="none"
-            />
+            <View style={styles.selectorBlock}>
+              <Text style={[styles.selectorLabel, { color: text }]}>Select Home</Text>
+
+              {homesLoading ? (
+                <ActivityIndicator color={primary} />
+              ) : homes.length === 0 ? (
+                <Text style={[styles.emptyText, { color: textSecondary }]}>
+                  No homes found. Please create a home first.
+                </Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.optionsRow}>
+                    {homes.map((home) => {
+                      const selected = selectedHomeId === home._id;
+
+                      return (
+                        <TouchableOpacity
+                          key={home._id}
+                          style={[
+                            styles.optionCard,
+                            {
+                              borderColor: selected ? primary : border,
+                              backgroundColor: selected ? primary : surface,
+                            },
+                          ]}
+                          onPress={() => setSelectedHomeId(home._id)}
+                          disabled={loading}
+                        >
+                          <Text style={[styles.optionTitle, { color: selected ? '#fff' : text }]}>
+                            {home.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.optionSubtitle,
+                              { color: selected ? '#fff' : textSecondary },
+                            ]}
+                          >
+                            {home.location}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+
+            <View style={styles.selectorBlock}>
+              <Text style={[styles.selectorLabel, { color: text }]}>Select Device</Text>
+
+              {devicesLoading ? (
+                <ActivityIndicator color={primary} />
+              ) : selectedHomeId && sensorDevices.length === 0 ? (
+                <Text style={[styles.emptyText, { color: textSecondary }]}>
+                  No sensor devices found in this home.
+                </Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.optionsRow}>
+                    {sensorDevices.map((device) => {
+                      const selected = selectedDeviceId === device._id;
+
+                      return (
+                        <TouchableOpacity
+                          key={device._id}
+                          style={[
+                            styles.optionCard,
+                            {
+                              borderColor: selected ? primary : border,
+                              backgroundColor: selected ? primary : surface,
+                            },
+                          ]}
+                          onPress={() => setSelectedDeviceId(device._id)}
+                          disabled={loading}
+                        >
+                          <Text style={[styles.optionTitle, { color: selected ? '#fff' : text }]}>
+                            {device.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.optionSubtitle,
+                              { color: selected ? '#fff' : textSecondary },
+                            ]}
+                          >
+                            {device.location}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              )}
+            </View>
 
             <Text style={[styles.sectionTitle, { color: text }]}>Sensors</Text>
             <AppInput
@@ -303,5 +471,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
+  },
+  selectorBlock: {
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  selectorLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  optionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingVertical: 2,
+  },
+  optionCard: {
+    minWidth: 130,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  optionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  optionSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  emptyText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
