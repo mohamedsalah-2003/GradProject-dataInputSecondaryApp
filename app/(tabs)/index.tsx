@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     padding: Spacing.md,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.xl + Spacing.sm,
     gap: Spacing.md,
   },
   header: {

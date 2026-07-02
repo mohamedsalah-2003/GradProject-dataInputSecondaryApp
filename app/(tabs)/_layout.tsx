@@ -1,16 +1,22 @@
 import { Tabs, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { tokenStorage } from '@/utils/tokenStorage';
+
+const TAB_BAR_CONTENT_HEIGHT = Platform.OS === 'ios' ? 49 : 56;
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
+  const tabBarTopPadding = Spacing.sm;
+  const tabBarBottomPadding = Math.max(insets.bottom, Spacing.sm);
 
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [hasToken, setHasToken] = useState(false);
@@ -46,8 +52,11 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
-          paddingTop: 4,
-          height: Platform.OS === 'ios' ? 88 : 64,
+          borderTopWidth: 1,
+          paddingTop: tabBarTopPadding,
+          paddingBottom: tabBarBottomPadding,
+          height:
+            TAB_BAR_CONTENT_HEIGHT + tabBarTopPadding + tabBarBottomPadding,
         },
         tabBarLabelStyle: {
           fontSize: 12,

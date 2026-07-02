@@ -241,7 +241,9 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   panel: {
-    margin: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
     borderRadius: Radius.lg,
     borderWidth: 1,
     padding: Spacing.md,
